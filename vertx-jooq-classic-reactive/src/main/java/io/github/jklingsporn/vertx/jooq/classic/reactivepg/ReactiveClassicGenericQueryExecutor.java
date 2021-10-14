@@ -193,7 +193,11 @@ public class ReactiveClassicGenericQueryExecutor extends AbstractReactiveQueryEx
         );
     }
 
-
+    /**
+     * Executes the given queriesFunction as batch and returns a <code>RowSet</code>
+     * @param queriesFunction the queries to execute as batch
+     * @return the results, never null
+     */
     @Override
     public Future<RowSet<Row>> executeBatch(Function<DSLContext, ? extends List<Query>> queriesFunction) {
         List<Query> queries = queriesFunction.apply(DSL.using(this.configuration()));
