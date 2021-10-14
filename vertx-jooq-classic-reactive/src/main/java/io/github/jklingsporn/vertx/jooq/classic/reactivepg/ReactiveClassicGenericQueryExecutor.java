@@ -1,6 +1,7 @@
 package io.github.jklingsporn.vertx.jooq.classic.reactivepg;
 
 import io.github.jklingsporn.vertx.jooq.classic.ClassicQueryExecutor;
+import io.github.jklingsporn.vertx.jooq.shared.internal.BatchQueryExecutor;
 import io.github.jklingsporn.vertx.jooq.shared.internal.QueryResult;
 import io.github.jklingsporn.vertx.jooq.shared.reactive.AbstractReactiveQueryExecutor;
 import io.github.jklingsporn.vertx.jooq.shared.reactive.ReactiveQueryExecutor;
@@ -13,6 +14,7 @@ import io.vertx.sqlclient.*;
 import org.jooq.Query;
 import org.jooq.*;
 import org.jooq.exception.TooManyRowsException;
+import org.jooq.impl.DSL;
 
 import java.util.List;
 import java.util.function.Function;
@@ -22,7 +24,7 @@ import java.util.stream.StreamSupport;
 /**
  * Created by jensklingsporn on 01.03.18.
  */
-public class ReactiveClassicGenericQueryExecutor extends AbstractReactiveQueryExecutor implements ReactiveQueryExecutor<Future<List<Row>>,Future<Row>,Future<Integer>>,ClassicQueryExecutor {
+public class ReactiveClassicGenericQueryExecutor extends AbstractReactiveQueryExecutor implements ReactiveQueryExecutor<Future<List<Row>>,Future<Row>,Future<Integer>>,ClassicQueryExecutor,BatchQueryExecutor<Future<RowSet<Row>>> {
 
     protected final SqlClient delegate;
     protected final Transaction transaction;
@@ -192,4 +194,16 @@ public class ReactiveClassicGenericQueryExecutor extends AbstractReactiveQueryEx
     }
 
 
+    @Override
+    public Future<RowSet<Row>> executeBatch(Function<DSLContext, ? extends List<Query>> queriesFunction) {
+        List<Query> queries = queriesFunction.apply(DSL.using(this.configuration()));
+        if (queries.isEmpty()) {
+            return Future.failedFuture(new IllegalArgumentException("Query list must not be empty"));
+        }
+        Query query = queries.get(0);
+        List<Tuple> tuples = queries.stream()
+                .map(this::getBindValues)
+                .collect(Collectors.toList());
+        return delegate.preparedQuery(this.toPreparedQuery(query)).executeBatch(tuples);
+    }
 }
